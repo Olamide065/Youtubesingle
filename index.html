@@ -1,207 +1,468 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Multi YouTube Video Player</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Multi YouTube Player — Upgraded</title>
 
   <style>
+    :root {
+      --bg: #0f0f0f;
+      --panel: #181818;
+      --card: #1e1e1e;
+      --accent: #cc0000;
+      --text: #fff;
+      --iframe-height: 160px; /* default (Medium) */
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #0f0f0f;
-      color: white;
       margin: 0;
-      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
     header {
       background: #202020;
-      padding: 10px;
-      text-align: center;
+      padding: 12px 16px;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 1.8em;
-    }
+    h1 { margin: 0; font-size: 1.4rem; }
 
     .controls {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      padding: 15px;
-      background: #181818;
-      flex-wrap: wrap;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      background: var(--panel);
+      position: sticky;
+      top: 0;
+      z-index: 99;
+      flex-wrap:wrap;
     }
 
-    input[type="text"] {
-      padding: 8px;
-      width: 250px;
-      border-radius: 6px;
+    .controls input[type="text"],
+    .controls textarea,
+    .controls select {
+      padding:8px;
+      border-radius:6px;
       border: none;
+      background: #0b0b0b;
+      color: var(--text);
     }
 
-    button {
-      background: #cc0000;
+    .controls textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .btn {
+      background: var(--accent);
       color: white;
       border: none;
-      padding: 8px 15px;
+      padding: 8px 12px;
       border-radius: 6px;
       cursor: pointer;
-      font-weight: bold;
-      transition: 0.3s;
+      font-weight: 700;
     }
 
-    button:hover {
-      background: #ff0000;
+    .btn.secondary {
+      background: #444;
     }
 
+    .controls .group {
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: #ccc;
+      margin-left: 8px;
+    }
+
+    /* Grid container */
     #videoGrid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 15px;
-      padding: 15px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+      padding: 14px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
     }
 
     .video-card {
-      background: #1e1e1e;
+      background: var(--card);
       border-radius: 10px;
       padding: 10px;
-      text-align: center;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .video-top {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+
+    .video-title {
+      font-weight:700;
+      font-size: 0.95rem;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .video-card iframe {
       width: 100%;
-      height: 200px;
-      border-radius: 10px;
+      height: var(--iframe-height);
+      border-radius: 8px;
+      background: black;
     }
 
-    .video-card button {
-      background: #444;
-      margin-top: 10px;
-      width: 100%;
+    .card-controls {
+      display:flex;
+      gap:8px;
+      align-items:center;
     }
 
-    .video-card button:hover {
-      background: #666;
+    .muted-note {
+      font-size:0.8rem;
+      color:#aaa;
+    }
+
+    /* compact for very small screens */
+    @media (max-width:420px){
+      .controls { padding:10px; gap:6px; }
+      .controls input[type="text"] { width: 160px; }
     }
   </style>
 </head>
-
 <body>
+
   <header>
-    <h1>🎬 Multi YouTube Video Player</h1>
+    <h1>🎬 Eflez Player</h1>
   </header>
 
   <div class="controls">
-    <input type="text" id="videoUrl" placeholder="Paste YouTube URL or Video ID" />
-    <button onclick="addVideo()">Add Video</button>
-    <button onclick="playAll()">Play All</button>
-    <button onclick="pauseAll()">Pause All</button>
+    <div class="group">
+      <input id="singleUrl" type="text" placeholder="Paste YouTube URL or ID (single)" />
+      <button class="btn" id="addSingleBtn">Add</button>
+    </div>
+
+    <div class="group" style="min-width:260px;">
+      <textarea id="playlistArea" placeholder="Paste multiple YouTube URLs/IDs — one per line (playlist)"></textarea>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="btn" id="addPlaylistBtn">Add Playlist</button>
+        <button class="btn secondary" id="clearPlaylistBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <label for="heightSelect">Video height:</label>
+      <select id="heightSelect">
+        <option value="small">Small</option>
+        <option value="medium" selected>Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label for="gridSelect">Grid per row:</label>
+      <select id="gridSelect">
+        <option value="auto">Auto</option>
+        <option value="2">2</option>
+        <option value="3" selected>3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <button class="btn" id="playAllBtn">Play All</button>
+      <button class="btn secondary" id="pauseAllBtn">Pause All</button>
+    </div>
+
+    <div class="meta" id="metaCount">0 videos</div>
   </div>
 
-  <div id="videoGrid"></div>
+  <div id="videoGrid" aria-live="polite"></div>
 
+  <!-- YouTube iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
-    let players = [];
+    /*********************
+     * Utilities & state *
+     *********************/
+    let players = []; // { uid, videoId, player }
+    const pendingCreateQueue = []; // functions to run when YT ready
+    let YTReady = false;
 
-    // ✅ Reliable YouTube Video ID Extractor
-    function extractVideoId(url) {
+    // Map height names to CSS values
+    const heightMap = { small: '120px', medium: '160px', large: '240px' };
+
+    // Safe id generator to permit duplicates
+    function makeUID(videoId){
+      return `${videoId.replace(/[^a-zA-Z0-9_-]/g,'')}_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+    }
+
+    // Extract a YouTube video ID from many common formats
+    function extractVideoId(input) {
+      const url = input?.trim();
+      if (!url) return null;
+
+      // If user pasted only 11-char id
+      if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+
       try {
-        const urlObj = new URL(url);
-
-        // Handle short links
-        if (urlObj.hostname.includes('youtu.be')) {
-          return urlObj.pathname.slice(1);
+        const u = new URL(url);
+        // short youtu.be/ID
+        if (u.hostname.includes('youtu.be')) {
+          return u.pathname.slice(1).split(/[?&]/)[0];
         }
+        // watch?v=ID
+        if (u.searchParams.has('v')) return u.searchParams.get('v').split('&')[0];
+        // /embed/ID
+        if (u.pathname.includes('/embed/')) return u.pathname.split('/embed/')[1].split(/[?&]/)[0];
+        // /shorts/ID
+        if (u.pathname.includes('/shorts/')) return u.pathname.split('/shorts/')[1].split(/[?&]/)[0];
 
-        // Handle regular watch links
-        if (urlObj.searchParams.has('v')) {
-          return urlObj.searchParams.get('v');
-        }
-
-        // Handle embed links
-        if (urlObj.pathname.includes('/embed/')) {
-          return urlObj.pathname.split('/embed/')[1];
-        }
-
-        // Handle shorts links
-        if (urlObj.pathname.includes('/shorts/')) {
-          return urlObj.pathname.split('/shorts/')[1];
-        }
-
-        return null;
-      } catch (e) {
-        // Maybe user just entered the video ID directly
-        return url.trim().length === 11 ? url.trim() : null;
+        // If it's some other URL but contains v= in query
+        const q = u.search;
+        const match = q.match(/v=([a-zA-Z0-9_-]{11})/);
+        if (match) return match[1];
+      } catch(e){
+        // Not a valid URL; maybe the user typed an id with spaces
+        const trimmed = input.replace(/\s+/g,'');
+        if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
       }
+      return null;
     }
 
-    function addVideo() {
-      const input = document.getElementById("videoUrl");
-      const url = input.value.trim();
-      const videoId = extractVideoId(url);
+    // Update the displayed numbering and meta count
+    function refreshLabels(){
+      const cards = document.querySelectorAll('.video-card');
+      cards.forEach((card, i) => {
+        const label = card.querySelector('.video-title');
+        if (label) label.textContent = `Video ${i+1} — ${card.dataset.customTitle || 'untitled'}`;
+      });
+      document.getElementById('metaCount').textContent = `${players.length} video${players.length===1?'':'s'}`;
+    }
 
-      if (!videoId) {
-        alert("❌ Invalid YouTube URL or Video ID");
-        return;
-      }
+    // Create a YouTube player (ensures YT is ready)
+    function createYTPlayer(uid, videoId){
+      const containerId = `player-${uid}`;
+      const el = document.getElementById(containerId);
+      if (!el) return;
 
-      const grid = document.getElementById("videoGrid");
-      const videoDiv = document.createElement("div");
-      videoDiv.className = "video-card";
-      videoDiv.innerHTML = `
-        <div id="player-${videoId}"></div>
-        <button onclick="removeVideo('${videoId}')">Remove</button>
+      const height = getComputedStyle(document.documentElement).getPropertyValue('--iframe-height').trim().replace('px','') || 160;
+
+      const createFn = () => {
+        try {
+          const player = new YT.Player(containerId, {
+            height: String(parseInt(height,10)),
+            width: '100%',
+            videoId,
+            playerVars: { rel: 0, modestbranding: 1 }
+          });
+          // attach player to state
+          const entry = players.find(p => p.uid === uid);
+          if (entry) entry.player = player;
+        } catch (err) {
+          console.error('YT create error', err);
+          // show small feedback in the card
+          el.parentElement.querySelector('.muted-note').textContent = '⚠️ Failed to initialize. Try reloading.';
+        }
+      };
+
+      if (YTReady) createFn();
+      else pendingCreateQueue.push(createFn);
+    }
+
+    // Public add function used by UI
+    function addVideoById(videoId, customTitle = ''){
+      if (!videoId) return;
+      const uid = makeUID(videoId);
+      const grid = document.getElementById('videoGrid');
+
+      // Create card
+      const card = document.createElement('div');
+      card.className = 'video-card';
+      card.dataset.videoId = videoId;
+      card.dataset.uid = uid;
+      if (customTitle) card.dataset.customTitle = customTitle;
+
+      card.innerHTML = `
+        <div class="video-top">
+          <div class="video-title"></div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn secondary" onclick="muteCard('${uid}')">Mute</button>
+            <button class="btn secondary" onclick="removeCard('${uid}')">Remove</button>
+          </div>
+        </div>
+
+        <div id="player-${uid}"></div>
+        <div class="card-controls">
+          <span class="muted-note">Loading player…</span>
+        </div>
       `;
-      grid.appendChild(videoDiv);
 
-      // Create the YouTube player
-      const player = new YT.Player(`player-${videoId}`, {
-        height: "200",
-        width: "100%",
-        videoId: videoId,
-        playerVars: { rel: 0, modestbranding: 1 },
-        events: {
-          onError: (e) => {
-            console.error("YouTube Player Error:", e);
-            alert("⚠️ Failed to load video. Please check the link.");
-          }
+      grid.appendChild(card);
+      // register in state (player will be attached when created)
+      players.push({ uid, videoId, player: null, el: card });
+
+      // call create (may be queued)
+      createYTPlayer(uid, videoId);
+
+      // auto-scroll
+      grid.scrollTop = grid.scrollHeight;
+
+      refreshLabels();
+    }
+
+    // Remove by uid
+    function removeCard(uid){
+      const idx = players.findIndex(p => p.uid === uid);
+      if (idx !== -1){
+        const p = players[idx];
+        if (p.player && typeof p.player.destroy === 'function') {
+          try { p.player.destroy(); } catch(e){ console.warn(e); }
+        }
+        // remove DOM
+        const el = p.el;
+        if (el && el.parentElement) el.parentElement.removeChild(el);
+        players.splice(idx,1);
+        refreshLabels();
+      }
+    }
+
+    // Mute the card's player (toggles)
+    function muteCard(uid){
+      const p = players.find(x => x.uid === uid);
+      if (!p || !p.player) return;
+      try {
+        const isMuted = p.player.isMuted();
+        if (isMuted) {
+          p.player.unMute();
+        } else {
+          p.player.mute();
+        }
+        // show small status
+        p.el.querySelector('.muted-note').textContent = isMuted ? 'Unmuted' : 'Muted';
+      } catch(e){
+        console.warn(e);
+      }
+    }
+
+    // Play/pause all
+    function playAll(){
+      players.forEach(p => {
+        if (p.player && typeof p.player.playVideo === 'function') {
+          try { p.player.playVideo(); } catch(e) { console.warn(e); }
         }
       });
-
-      players.push(player);
-      input.value = "";
+    }
+    function pauseAll(){
+      players.forEach(p => {
+        if (p.player && typeof p.player.pauseVideo === 'function') {
+          try { p.player.pauseVideo(); } catch(e) { console.warn(e); }
+        }
+      });
     }
 
-    function removeVideo(videoId) {
-      const index = players.findIndex(
-        (p) => p.getIframe && p.getIframe().id === `player-${videoId}`
-      );
-      if (index !== -1) {
-        players[index].destroy();
-        players.splice(index, 1);
+    // Playlist add (multi-line)
+    function addPlaylistFromTextarea(){
+      const area = document.getElementById('playlistArea');
+      const lines = area.value.split('\n').map(l => l.trim()).filter(l => l.length>0);
+      let added = 0;
+      lines.forEach(line => {
+        const id = extractVideoId(line);
+        if (id) { addVideoById(id); added++; }
+      });
+      if (added === 0) alert('No valid video links or IDs found in the playlist text.');
+      else {
+        // keep the text so user can add again or clear manually
       }
-      document.getElementById(`player-${videoId}`)?.parentElement.remove();
     }
 
-    function playAll() {
+    // UI wiring
+    document.getElementById('addSingleBtn').addEventListener('click', () => {
+      const v = document.getElementById('singleUrl').value.trim();
+      const id = extractVideoId(v);
+      if (!id) return alert('Please paste a valid YouTube URL or video ID (11 chars).');
+      addVideoById(id);
+      document.getElementById('singleUrl').value = '';
+    });
+
+    document.getElementById('addPlaylistBtn').addEventListener('click', addPlaylistFromTextarea);
+    document.getElementById('clearPlaylistBtn').addEventListener('click', () => {
+      document.getElementById('playlistArea').value = '';
+    });
+
+    document.getElementById('playAllBtn').addEventListener('click', playAll);
+    document.getElementById('pauseAllBtn').addEventListener('click', pauseAll);
+
+    // Height selector: update CSS var and iframe heights live
+    document.getElementById('heightSelect').addEventListener('change', (e) => {
+      const v = e.target.value;
+      const val = heightMap[v] || heightMap.medium;
+      document.documentElement.style.setProperty('--iframe-height', val);
+      // Update existing iframes' height attribute so YT players get resized
+      document.querySelectorAll('.video-card iframe').forEach(ifr => {
+        ifr.style.height = val;
+      });
+      // Also if players exist, call setSize on them if possible
       players.forEach(p => {
-        if (p.playVideo) p.playVideo();
+        if (p.player && typeof p.player.setSize === 'function') {
+          try { p.player.setSize('100%', parseInt(val)); } catch(e){ console.warn(e); }
+        }
+      });
+    });
+
+    // Grid size selector: adjust columns
+    document.getElementById('gridSelect').addEventListener('change', (e) => {
+      const v = e.target.value;
+      const grid = document.getElementById('videoGrid');
+      if (v === 'auto') {
+        grid.style.gridTemplateColumns = '';
+      } else {
+        const n = parseInt(v,10) || 3;
+        grid.style.gridTemplateColumns = `repeat(${n}, minmax(0, 1fr))`;
+      }
+    });
+
+    /*****************************************
+     * YouTube API handling (safe queueing)  *
+     *****************************************/
+    function onYouTubeIframeAPIReady(){
+      YTReady = true;
+      // flush pending queue
+      while (pendingCreateQueue.length) {
+        const fn = pendingCreateQueue.shift();
+        try { fn(); } catch(e){ console.error(e); }
+      }
+      // update any "Loading player..." notes
+      document.querySelectorAll('.muted-note').forEach(n => {
+        if (n.textContent === 'Loading player…') n.textContent = '';
       });
     }
 
-    function pauseAll() {
-      players.forEach(p => {
-        if (p.pauseVideo) p.pauseVideo();
-      });
-    }
+    // Expose for global (YT expects this name)
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
 
-    // Needed for the YouTube iframe API to work globally
-    function onYouTubeIframeAPIReady() {}
+    /****************
+     * Small helper to keep labels updated periodically (catches late loads/removals)
+     ****************/
+    setInterval(refreshLabels, 800);
+
+    // Initial setup: pick Medium size default
+    document.getElementById('heightSelect').dispatchEvent(new Event('change'));
   </script>
 </body>
 </html>
