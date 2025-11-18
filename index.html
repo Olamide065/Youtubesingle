@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi YouTube Video Player</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f0f0f;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #202020;
+      padding: 10px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.8em;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding: 15px;
+      background: #181818;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"] {
+      padding: 8px;
+      width: 250px;
+      border-radius: 6px;
+      border: none;
+    }
+
+    button {
+      background: #cc0000;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #ff0000;
+    }
+
+    #videoGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+      padding: 15px;
+    }
+
+    .video-card {
+      background: #1e1e1e;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .video-card iframe {
+      width: 100%;
+      height: 200px;
+      border-radius: 10px;
+    }
+
+    .video-card button {
+      background: #444;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    .video-card button:hover {
+      background: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>🎬 Multi YouTube Video Player</h1>
+  </header>
+
+  <div class="controls">
+    <input type="text" id="videoUrl" placeholder="Paste YouTube URL or Video ID" />
+    <button onclick="addVideo()">Add Video</button>
+    <button onclick="playAll()">Play All</button>
+    <button onclick="pauseAll()">Pause All</button>
+  </div>
+
+  <div id="videoGrid"></div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    let players = [];
+
+    // ✅ Reliable YouTube Video ID Extractor
+    function extractVideoId(url) {
+      try {
+        const urlObj = new URL(url);
+
+        // Handle short links
+        if (urlObj.hostname.includes('youtu.be')) {
+          return urlObj.pathname.slice(1);
+        }
+
+        // Handle regular watch links
+        if (urlObj.searchParams.has('v')) {
+          return urlObj.searchParams.get('v');
+        }
+
+        // Handle embed links
+        if (urlObj.pathname.includes('/embed/')) {
+          return urlObj.pathname.split('/embed/')[1];
+        }
+
+        // Handle shorts links
+        if (urlObj.pathname.includes('/shorts/')) {
+          return urlObj.pathname.split('/shorts/')[1];
+        }
+
+        return null;
+      } catch (e) {
+        // Maybe user just entered the video ID directly
+        return url.trim().length === 11 ? url.trim() : null;
+      }
+    }
+
+    function addVideo() {
+      const input = document.getElementById("videoUrl");
+      const url = input.value.trim();
+      const videoId = extractVideoId(url);
+
+      if (!videoId) {
+        alert("❌ Invalid YouTube URL or Video ID");
+        return;
+      }
+
+      const grid = document.getElementById("videoGrid");
+      const videoDiv = document.createElement("div");
+      videoDiv.className = "video-card";
+      videoDiv.innerHTML = `
+        <div id="player-${videoId}"></div>
+        <button onclick="removeVideo('${videoId}')">Remove</button>
+      `;
+      grid.appendChild(videoDiv);
+
+      // Create the YouTube player
+      const player = new YT.Player(`player-${videoId}`, {
+        height: "200",
+        width: "100%",
+        videoId: videoId,
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: {
+          onError: (e) => {
+            console.error("YouTube Player Error:", e);
+            alert("⚠️ Failed to load video. Please check the link.");
+          }
+        }
+      });
+
+      players.push(player);
+      input.value = "";
+    }
+
+    function removeVideo(videoId) {
+      const index = players.findIndex(
+        (p) => p.getIframe && p.getIframe().id === `player-${videoId}`
+      );
+      if (index !== -1) {
+        players[index].destroy();
+        players.splice(index, 1);
+      }
+      document.getElementById(`player-${videoId}`)?.parentElement.remove();
+    }
+
+    function playAll() {
+      players.forEach(p => {
+        if (p.playVideo) p.playVideo();
+      });
+    }
+
+    function pauseAll() {
+      players.forEach(p => {
+        if (p.pauseVideo) p.pauseVideo();
+      });
+    }
+
+    // Needed for the YouTube iframe API to work globally
+    function onYouTubeIframeAPIReady() {}
+  </script>
+</body>
+</html>
